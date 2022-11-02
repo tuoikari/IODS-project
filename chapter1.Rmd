@@ -11,3 +11,9 @@ date()
 ```
 The text continues here.
 
+I am feeling excited to learn a lot! I am a bit worried if I will manage to work through every week as I am not so familiar with all the techniques. But I will try my best, and ask help, if needed! I took this course as it could fit well to my study programme in Social Data Science - program.
+
+I briefly looked through RStudio exercise. I just completed course on the same book (Quantitative Research Skills by Kimmo), so I felt confident enough to not go through the exercise in detail. But thank you for it, it is always useful to have materials.
+
+My github repo:
+https://github.com/tuoikari/IODS-project
