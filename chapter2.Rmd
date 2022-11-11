@@ -11,3 +11,100 @@ date()
 ```
 
 Here we go again...
+
+
+First, let's load all the libraries.
+```{r}
+library(ggplot2)
+library(GGally)
+library(tidyverse)
+```
+
+
+Just to make sure that my data is correct, I load the data from the web address (even though I think that my wrangling was successful).
+```{r}
+#read in data
+lrn14_chapter2 <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/learning2014.txt", sep=",", header=TRUE)
+```
+
+Explore the data:
+```{r}
+str(lrn14_chapter2)
+dim(lrn14_chapter2)
+```
+
+The dataframe contains 166 rows/respondents and 7 columns/variables. The variables are: "Gender", "Age", "attitude", "deep", "stra", "surf" and "points". Most of the columns are numerical and integers, but gender is characher variable.
+The data set contains those students whose scores where higher than 0.
+Deep, stra and surf -variables relate to deep, strategic and surface learning strategies that very examined in the study.
+Attitude refers to "Global attitude toward statistics". If I understood correctly, the value is counted by summing together questions about statistics. The column in this data frame was further divided by ten because it "is scaled back to the original scale of the questions, by dividing it with the number of questions" (Quatation is from the "Exercise2.Rmd").
+
+
+Scatter matrix of the variables in data (other than gender)
+```{r}
+#Draw a scatter matrix of the variables in learning2014 (other than gender)
+pairs(lrn14_chapter2[-1], col = "red")
+```
+Some initial relations can be seen to be further confirmed with further analysis. For example it seems that people using deep learning strategy have gotten better points than people using strategic or surf learning strategies.
+
+Let's create a more advanced plot matrix with ggpairs()
+
+```{r}
+plot2 <- ggpairs(lrn14_chapter2, mapping = aes(col=gender, alpha = 0.3), lower = list(combo = wrap("facethist", bins = 20)))
+plot2
+```
+
+I don't know what gender is what in this plot so I will quickly look at count of gender groups in this data set.
+```{r}
+lrn14_chapter2 %>% 
+    group_by(gender) %>% 
+    count()
+```
+
+So, in the plot above, red color is female and mint color is male. But now that I look into the plot, it has the letter with the colors below, so this step was not neede after all. Anyway, it is nice to know the distribution of gender counts in this data set (which also happens to be in the plot above).
+In the ggpairs() plot one can see histograms of every variable, grouped by the genders. In the plot Pearson correlation value and significance are also displayed. 
+For example, one can see that attitude and points are quite strongly (0.437 with high significance) positively correlated. When on the other hand, surface learning and deep learning are quite strongly negatively correlated with pretty good significance level (**). Age and deep learning don't seem to correlate strongly, but there is not significance level reported on the plot (or not visible on the picture on my device).
+
+
+Let's move on to regression analysis.
+
+
+```{r}
+model1 <- lm(points ~ attitude, data = lrn14_chapter2)
+summary(model1)
+```
+
+I have tried to install all variables but attitude seems to be the only one that has statistically significant relationship. The adjusted R-squared is 0.1856 which is not great (the closer to 1, the better) but it is something to work on. When adding other variables, the adjusted R-squared does not really improve and the added variables are not significant.
+
+```{r}
+model2 <- lm(points ~ attitude + age + gender, data = lrn14_chapter2)
+summary(model2)
+```
+
+```{r}
+model2 <- lm(points ~ attitude + deep + surf, data = lrn14_chapter2)
+summary(model2)
+```
+
+```{r}
+model3 <- lm(points ~ attitude + stra + surf , data = lrn14_chapter2)
+summary(model3)
+```
+Model3 is straight from the exercise2, but "stra" and "surf" don't either have statistically significant relationship with the points. This can be seen from the p-value that is greatly above 0.05. Summary also shows significance with ***-stars, which are missing from the "stra" and "surf" variables. 
+
+Maybe I am not undertanding something, but it seems that with this subset of variables there are not really other significant variables related to the points other than attitude? This seems though quite unlikely, when thinking about this assignment, so maybe I am now missing something.
+
+But, concluding: The simplest model is model1, with just "attitude"-variable as explanatory variable and points as dependant variable. This has almost the same Adjusted R-squared value as other models and does not contain statistically insignificant variables.
+
+Then time for some diagnostic plots.
+```{r}
+par(mfrow = c(2, 2))
+plot(model1, which = c(1,2,5))
+```
+
+Residuals vs Fitted plot is used to investigate the linearity assumption which is the basic assumption of linear regression: Is there a linear relationship between independent and dependant variable? It can be also used to analyze Homoscedasticity assumption, which related to whether the residuals have evenly distributed variance all around the data set. The plot also can show if there are some outliers. In this model there are some outliers, marked with numbers 145, 56 and 35. These can be also seen in the Residuals vs Leverage plot.
+
+Normal Q-Q plot is used to assess normality assumption of the linear regression. Normality assumption relates to assessing whether residuals in the linear regression model are normally distributed. Q-Q plot can be used to analyze this by analyzing whether the points fall on the line in the plot. In our case, they fall onto it quite nicely. There are the same exceptions, outliers, that could be seen from the previous plot.
+
+Residuals vs leverage plot shows if some observations have very high impact on the model. This is related to finding outliers in the model. Leverage refers to how much some observations affects the model and if removing that observation would change the model a lot. THe plot has Cook's distance which is red hyphen line. If some point would be outside of that line, it would have very high influence. In our model the outliers are close to being outside of it but not quite. But their impact in the data has been now shown to be quite high on the data and if they were removed, our model would change lot compared to other observations. This test can be again used to test homoscedasticity and also linearity, the two of the four key assumptions in linear regression.
+
+In my opinion our model1 survives the test nicely.

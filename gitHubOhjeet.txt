@@ -1,0 +1,9 @@
+There are a few phases (don't worry: all this will become an easy routine for you very soon!):
+
+    First, select the "Git" tab in the upper right corner of RStudio. You will see a list of modified files.
+    Select "Commit". It will open a new "Review Changes" window showing more detailed information of the changes you have made in each file since the previous version.
+    Tick the box in the front of each file (be patient, it takes some time for the check to appear).
+    Write a small commit message (there's a box for that) that describes your changes briefly. After this task is completed (not yet), both the changes and the message will be seen on GitHub. (Note: It is useful to make commits often and even on small changes. Commits are at the heart of the version control system, as a single commit represents a single version of the file.)
+    Press "Commit". (RStudio uses Git to implement the changes included in the commit.)
+    Press "Push". (RStudio uses Git to upload the changes to your GitHub repository.)
+    Now you can close the "Review Changes" window of RStudio. Good job!! (5 p)
