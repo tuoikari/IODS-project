@@ -1,0 +1,383 @@
+# 3: Logistic regression
+
+```{r}
+date()
+```
+
+Libraries used:
+
+```{r message=FALSE, warning=FALSE}
+#install.packages("vtable")
+library(vtable)
+library(tidyverse)
+#install.packages("sjPlot")
+library(sjPlot)
+library(boot)
+```
+
+
+Let's read in the data. I read in the data from the url just in case, even though I think my data wrangling was successful.
+
+```{r}
+data_chap3 <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/alc.csv", sep = ",", header = TRUE)
+```
+
+Let's print out variable names.
+
+```{r}
+colnames(data_chap3)
+```
+
+The data set contains 35 variables. 33 of them were from UCI Machine Learning Repository, Student Performance Data (incl. Alcohol consumption). 2 variables, "alc_use" and "high_use" are created. Variable "alc_use" is created by taking average from "Dalc" (weekday alcohol use) and "Walc" (weekend alcohol use). Variable 'high_use' is TRUE if 'alc_use' is higher than 2 and FALSE otherwise.
+
+```{r}
+str(data_chap3)
+dim(data_chap3)
+```
+The data set contains 370 observations. The data set contains multiple character and integer variables, and one numerical and one logical variable.
+The variables and their possible values (from https://archive.ics.uci.edu/ml/datasets/Student+Performance):
+
+Attributes for both student-mat.csv (Math course) and student-por.csv (Portuguese language course) datasets:
+
+1 school - student's school (binary: 'GP' - Gabriel Pereira or 'MS' - Mousinho da Silveira)
+
+2 sex - student's sex (binary: 'F' - female or 'M' - male)
+
+3 age - student's age (numeric: from 15 to 22)
+
+4 address - student's home address type (binary: 'U' - urban or 'R' - rural)
+
+5 famsize - family size (binary: 'LE3' - less or equal to 3 or 'GT3' - greater than 3)
+
+6 Pstatus - parent's cohabitation status (binary: 'T' - living together or 'A' - apart)
+
+7 Medu - mother's education (numeric: 0 - none, 1 - primary education (4th grade), 2 - 5th to 9th grade, 3 - secondary education or 4 - higher education)
+
+8 Fedu - father's education (numeric: 0 - none, 1 - primary education (4th grade), 2 - 5th to 9th grade, 3 - secondary education or 4 - higher education)
+
+9 Mjob - mother's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')
+
+10 Fjob - father's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')
+
+11 reason - reason to choose this school (nominal: close to 'home', school 'reputation', 'course' preference or 'other')
+
+12 guardian - student's guardian (nominal: 'mother', 'father' or 'other')
+
+13 traveltime - home to school travel time (numeric: 1 - <15 min., 2 - 15 to 30 min., 3 - 30 min. to 1 hour, or 4 - >1 hour)
+
+14 studytime - weekly study time (numeric: 1 - <2 hours, 2 - 2 to 5 hours, 3 - 5 to 10 hours, or 4 - >10 hours)
+
+15 failures - number of past class failures (numeric: n if 1<=n<3, else 4)
+
+16 schoolsup - extra educational support (binary: yes or no)
+
+17 famsup - family educational support (binary: yes or no)
+
+18 paid - extra paid classes within the course subject (Math or Portuguese) (binary: yes or no)
+
+19 activities - extra-curricular activities (binary: yes or no)
+
+20 nursery - attended nursery school (binary: yes or no)
+
+21 higher - wants to take higher education (binary: yes or no)
+
+22 internet - Internet access at home (binary: yes or no)
+
+23 romantic - with a romantic relationship (binary: yes or no)
+
+24 famrel - quality of family relationships (numeric: from 1 - very bad to 5 - excellent)
+
+25 freetime - free time after school (numeric: from 1 - very low to 5 - very high)
+
+26 goout - going out with friends (numeric: from 1 - very low to 5 - very high)
+
+27 Dalc - workday alcohol consumption (numeric: from 1 - very low to 5 - very high)
+
+28 Walc - weekend alcohol consumption (numeric: from 1 - very low to 5 - very high)
+
+29 health - current health status (numeric: from 1 - very bad to 5 - very good)
+
+30 absences - number of school absences (numeric: from 0 to 93)
+
+These grades are related with the course subject, Math or Portuguese:
+
+31 G1 - first period grade (numeric: from 0 to 20)
+
+31 G2 - second period grade (numeric: from 0 to 20)
+
+32 G3 - final grade (numeric: from 0 to 20, output target)
+
+The data set also includes the created variables "alc_use" and "high_use" which were described above.
+
+Let's use vtable-package and its st()-function to summarize data (I learned about this package in this course). It will print a summary statistics table (also to the Viewer in RStudio).
+
+```{r}
+st(data_chap3)
+```
+
+The mean age of respondents is 16.576 with a standard deviation of 1.181. There are 52,7% (n=195) females and 47.3% (n=175) males. 89.5% of the respondents are from 'GP' - Gabriel Pereira schooland 10.5% are from 'MS' - Mousinho da Silveira.
+
+## Four variables and their relationships to high alcohol use
+
+Let's choose four variable and analyze their relationships with alcohol use.
+
+I choose these variables:
+
+**"absences"** - number of school absences (numeric: from 0 to 93)
+
+I would guess that more absences are connected to higher alcohol use.
+
+**"famrel"** - quality of family relationships (numeric: from 1 - very bad to 5 - excellent)
+
+I make a educated guess that the worse the quality of family relationships, the more probable higher alcohol use is.
+
+**"Medu"** - mother's education (numeric: 0 - none, 1 - primary education (4th grade), 2 - 5th to 9th grade, 3 - secondary education or 4 - higher education)
+
+My hypothesis is that the lower the mother's education, the more probably respondent has high alcohol use.
+
+**G3** - final grade (numeric: from 0 to 20, output target)
+
+I would expect that those with high alcohol use get worse grades.
+
+
+Let's explore these variables more. Let's first take numerical summaries.
+
+```{r}
+summary(data_chap3$absences)
+summary(data_chap3$Medu)
+summary(data_chap3$famrel)
+summary(data_chap3$G3)
+```
+
+Mean number of absences is 4.511 with the maximum of 45. 
+
+Mean mother's education level is 2.8 with median of 3 (secondary education).
+
+Mean of family relations is 3.935.
+
+Mean grade is 11.52 out of 20 maximum points. No one has gotten the maximum points.
+
+
+Let's use multiplot function that is supposed to be in ggplot. It for some reason requires one to first run this code (I learned this also from someone in this course, thank you very much):
+
+```{r}
+multiplot <- function(..., plotlist = NULL, file, cols = 1, layout = NULL) {
+  require(grid)
+
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                 ncol = cols, nrow = ceiling(numPlots/cols))
+}
+
+if (numPlots == 1) {
+print(plots[[1]])
+
+} else {
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+for (i in 1:numPlots) {
+  matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+  print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                  layout.pos.col = matchidx$col))
+ }
+}
+ }
+```
+
+
+```{r}
+p1 <- ggplot(data_chap3, aes(x=absences)) +
+  geom_histogram()
+
+p2 <- ggplot(data_chap3, aes(x=Medu)) +
+  geom_histogram()
+
+p3 <- ggplot(data_chap3, aes(x=famrel)) +
+  geom_histogram()
+
+p4 <- ggplot(data_chap3, aes(x=G3)) +
+  geom_histogram()
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+```
+
+Absences plot is right skewed with most of the absence numbers being under 10. I am not sure if fam rel and medu plots can be said to be skewed, but they would be left-skewed. The same goes for G3, final grades plot.
+
+Let's try to use cross-tabulation from sjPlot package, following this https://bookdown.org/wadetroberts/r-you-ready-for-r/cross-tabulation.html. I have really never used that package, so this is a nice learning opportunity.
+
+**Absences**
+```{r}
+sjPlot::tab_xtab(var.row = data_chap3$absences, var.col = data_chap3$high_use, title = "Cross-tabulation: Absences and high alcohol use", show.row.prc = TRUE)
+```
+
+Cross-tabulation (or this plot) might not be the greatest tool to use for variable with this wide distribution (maybe continous variables in general?). This data could have maybe grouped to make this plot more useful.
+
+Family relationships
+```{r}
+sjPlot::tab_xtab(var.row = data_chap3$famrel, var.col = data_chap3$high_use, title = "Cross-tabulation: Family relationship and high alcohol use", show.row.prc = TRUE)
+```
+
+This does not paint very clear picture of if there is a trend here. There are quite low numbers of "bad" (1 or 2) family relationships.
+
+Mother's education
+```{r}
+sjPlot::tab_xtab(var.row = data_chap3$Medu, var.col = data_chap3$high_use, title = "Cross-tabulation: Mother's education and high alcohol use", show.row.prc = TRUE)
+```
+
+It is also a bit difficult to say anything conclusive from this table either. There is 66.7 higher use in the first category but there are only 3 respondents in that category.
+
+G3
+```{r}
+sjPlot::tab_xtab(var.row = data_chap3$G3, var.col = data_chap3$high_use, title = "Cross-tabulation: Final grade and high alcohol use", show.row.prc = TRUE)
+```
+
+This also has a bit the same problem as absences: there are maybe too many categories here and it is a bit hard to see a trend here.
+
+Let's explore the graphical options of sjPlot-package.
+
+**Absences**
+```{r}
+sjPlot::plot_xtab(data_chap3$absences, data_chap3$high_use, margin = "row", bar.pos = "stack", coord.flip = TRUE)
+```
+
+Based on this plot my hypothesis could be correct about the more absences connected with high_use but the n-values are so low that this is still hard to say.
+
+**Family relationships**
+```{r}
+sjPlot::plot_xtab(data_chap3$famrel, data_chap3$high_use, margin = "row", bar.pos = "stack", coord.flip = TRUE)
+```
+This also would point to the direction of my hypothesis, except for famrel-value 1 (it also has quite low number of respondents).
+
+
+**Mother's education**
+```{r}
+sjPlot::plot_xtab(data_chap3$Medu, data_chap3$high_use, margin = "row", bar.pos = "stack", coord.flip = TRUE)
+```
+This plot could be intepreted maybe to falsify my hypotheses as the distribution is quite spread out.
+
+**Final grades G3**
+```{r}
+sjPlot::plot_xtab(data_chap3$G3, data_chap3$high_use, margin = "row", bar.pos = "stack", coord.flip = TRUE)
+```
+
+This graph points to the direction that people with grades of 10 (close to the mean also) have the highest probability of high_use.
+
+We need more tests. So:
+
+## Logistic regression
+
+Let's make logistic regression of the chosen variables.
+**Absences**
+
+```{r}
+glm_model1 <- glm(high_use ~ absences, data = data_chap3, family = "binomial")
+summary(glm_model1)
+coef(glm_model1)
+```
+
+There seems to be tiny positive relationship (0.08867) between absences and high alcohol use. It is statistically significant. The effect is not very big though, for example compared to the standard error (0.02317).
+
+```{r}
+glm_model2 <- glm(high_use ~ famrel + Medu, data = data_chap3, family = "binomial")
+summary(glm_model2)
+coef(glm_model2)
+```
+
+Family relationship seems to have negative coefficient estimate. It is statistically significant. I have to admit, that I am not entirely sure again if it is big enough compared to the standard error to be relevant change.
+Mother's education level on the other hand is not statistically significant. I will not analyze it more in this chapter.
+
+```{r}
+glm_model3 <- glm(high_use ~ G3, data = data_chap3, family = "binomial")
+summary(glm_model3)
+coef(glm_model3)
+```
+
+Final grade scores seem to have some negative dependancy with high alcohol use. It is statistically significant.
+
+First model has the lowest AIC value which would point towards it being the best fit. Also the residual deviance is the lowest of the three models compared also to the null deviance which to my undestanding points to that model models the data the best of the three models here.
+
+Maybe we could create a model with absences, famrel and G3. Those all seemed to have a statistically meaningful relationship with high_use.
+
+```{r}
+glm_model4 <- glm(high_use ~ absences + famrel + G3, data = data_chap3, family = "binomial")
+summary(glm_model4)
+```
+
+This seems to be the model to work with. It has the lowest residual deviance and AIC values and all the variables are statistically significant.
+
+## Prediction
+
+Let's turn to prediction and assess how well the chosen model can predict alcohol use. Let's use the model glm_model4 to predict high alcohol use.
+
+```{r}
+
+chap3_probabilities <- predict(glm_model4, type = "response")
+
+# add the predicted probabilities to data
+data_chap3 <- mutate(data_chap3, probability = chap3_probabilities)
+
+# use the probabilities to make a prediction of high_use
+data_chap3 <- mutate(data_chap3, prediction = probability > 0.5)
+
+# see the last ten original classes, predicted probabilities, and class predictions
+select(data_chap3, absences, famrel, G3, high_use, probability, prediction) %>% tail(10)
+
+# tabulate the target variable versus the predictions
+table(high_use = data_chap3$high_use, prediction = data_chap3$probability)
+```
+
+From those last 10 our model predicted 6/10 correct.  Let's explore further.
+
+```{r}
+glm_plot <- ggplot(data_chap3, aes(x = probability, y = high_use, col = prediction))
+
+# define the geom as points and draw the plot
+glm_plot + geom_point()
+
+# tabulate the target variable versus the predictions
+table(high_use = data_chap3$high_use, prediction = data_chap3$prediction) %>% prop.table() %>% addmargins()
+```
+I am not quite sure how this table should be interpreted. Does this mean that there were 70% false high_use cases in the data and my model predicted that there were 67 % high use cases? And the same logic with other cases?
+For understanding better how our model succeeded, let's use loss_func function defined in the exercise set.
+
+
+```{r}
+# define a loss function (mean prediction error)
+loss_func <- function(class, prob) {
+  n_wrong <- abs(class - prob) > 0.5
+  mean(n_wrong)
+}
+
+# call loss_func to compute the average number of wrong predictions in the (training) data
+loss_func(class = data_chap3$high_use, prob = data_chap3$probability)
+```
+If I understand correctly, the model makes around 71% correct predictions. In the exercise set the model made a little less errors and predicted around 78% correctly with variables "sex", "failures" and absences". My chosen model is thus not the best possible model to predict high alcohol use probability in this data set. But it seemed to be the best fitted model from my chosen variables. It quite often seems to be the case that I choose variables that don't end up being the best possible choice for models and analysis but this is maybe more of subject-matter knowledge that I am lacking to make better guesses on given data sets.
+
+Let's then try cross-validation.
+
+```{r}
+# K-fold cross-validation
+cv_chap3 <- cv.glm(data = data_chap3, cost = loss_func, glmfit = glm_model4, K = nrow(data_chap3))
+
+# average number of wrong predictions in the cross validation
+cv_chap3$delta[1]
+```
+This model has higher average number of wrong predictions in the cross validation, around 5% higher.
+
+Let's try to do 10-fold cross-validation.
+
+```{r}
+cv_chap3_2 <- cv.glm(data = data_chap3, cost = loss_func, glmfit = glm_model4, K = 10)
+
+# average number of wrong predictions in the cross validation
+cv_chap3_2$delta[1]
+```
+With 10-fold cross validation, my model is still a bit worse than the model from the exercise set.
+So, based on both loss_func-test and cross-validation test, my chosen model predicts alcohol use a bit worse than the model in the exercise set. Absences-variable was the same in both models, but "sex" and "failures" proved to be better predictors than "G3" (final grade) and "famrel" (family relation).
