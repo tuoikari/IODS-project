@@ -1,0 +1,238 @@
+# 5: Dimensionality reduction techniques
+
+```{r}
+date()
+```
+
+Libraries used:
+```{r}
+library(tidyverse)
+library("GGally")
+library(Hmisc)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(FactoMineR)
+library(factoextra)
+```
+
+Read in data (reading it from url just to make sure it correct)
+```{r}
+human <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/human2.txt", sep=",", header=TRUE)
+```
+
+## Explore the data
+
+```{r}
+str(human)
+```
+
+The data contains 155 rows and 8 variables. It contains 6 numerical variables and 2 integer variables.
+
+Variables include:
+"Edu2.FM" = ratio of Female and Male populations with secondary education in each country
+"Labo.FM" = ratio of labor force participation of females and males in each country
+"Edu.Exp" = Expected years of schooling
+"Life.Exp" = Life expectancy at birth
+"GNI" = Gross National Income per capita
+"Mat.Mor" = Maternal mortality ratio
+"Ado.Birth" = Adolescent birth rate
+"Parli.F" = Percetange of female representatives in parliament
+
+```{r}
+
+```
+
+
+```{r}
+summary(human)
+```
+
+Variables have quite different scales as they relate to different things. Let's look at them by plotting them. I will try hist.data.frame from "Hmisc"-package (never used before). I used 30 bins (nclass-argument).
+
+```{r}
+hist.data.frame(human, nclass =30)
+```
+Quite many of the variables are skewed (Labo.Fm, GNI, Ado.Birth, Parli.F, Mat.Mor). I am not sure if we can say that for example Edu2.FM is normally distributed based on this graph. Also Life.Exp is maybe a bit skewed? (THIS PRINTIG WORKED NORMALLY IN RSTUDIO BUT RMARKDOWN PRINTS EVERYTHING SMALL, NOT SURE WHY THIS IS AND CAN'T GET PICTURE BIGGER)
+
+Let's use ggpairs to get more overview on the data and see some correlations between them (I hope that the correlation used in ggpairs is applicable for this kind of data set).
+
+```{r}
+ggpairs(human)
+```
+For reading purposes, here are the variable names again:
+
+"Edu2.FM" = ratio of Female and Male populations with secondary education in each country
+"Labo.FM" = ratio of labor force participation of females and males in each country
+"Edu.Exp" = Expected years of schooling
+"Life.Exp" = Life expectancy at birth
+"GNI" = Gross National Income per capita
+"Mat.Mor" = Maternal mortality ratio
+"Ado.Birth" = Adolescent birth rate
+"Parli.F" = Percetange of female representatives in parliament
+
+
+There are a lot of (compared to some data sets analyzed before) statistically significant correlations here:
+-Edu2.FM correlates strongly with Edu.Exp (0.593), Life.Exp (0.576), GNI(0.430), Mat.Mor(-0.661) and Ado.Birth(-0.529)
+-Labo.FM has significant correlations with Mat.Mor and Parli.F
+-Edu.Exp has significant correlation with all of the variables expect Labo.FM
+-Life.Exp correlates significantly with GNI, Mat.Mor, Ado.Birth, Corr
+
+and so forth. The strongest correlation seems to be between Mat.Mpr and Life.Exp (-0.857). Some other strong ones are Edu.Exp with Life.Exp (0.789), Edu.Exp with Mat.Mor (-0.736), Math.Mor with Ado.Birth (0.759) and Life.Exp with Ado.Birth (-0.729).
+
+## PCA
+
+### Non-standardized
+
+Let's then turn to PCA. First let's perform PCA on raw, unstandardised data.
+```{r}
+pca_human <- prcomp(human)
+summary(pca_human)
+
+# draw a biplot of the principal component representation and the original variables
+biplot(pca_human, choices = 1:2)
+```
+
+These results don't make a lot of sense. First PC explains almost everything already (if I interpret 9.999e-01 correctly) and then after second everything is explained. It seems quite improbably that this is the case.
+In the plot mot of the countries are gathered to the top right corner. Some countries have some differences, most notably Sierraleone.
+
+Let's edit the biplot with ideas from Exercise5.
+
+```{r}
+biplot(pca_human, choices = 1:2, cex = c(0.8,1), col = c("grey40", "deeppink2"))
+```
+
+### Standardized
+
+Let's then standardize the variables to see if they make more sense.
+
+```{r}
+human_std <- scale(human)
+pca_human_std <- prcomp(human_std)
+summary(pca_human_std)
+```
+
+These results are much more undestandable. PC1 seems to be explaining 53,6% of the variance in the data set, PC2 16,2 and PC3 around 10. With these three PC:s 79% of the variance is explained in the data set.
+One can also see standard deviation for each component. They seem to be in decreasing order. These are apparently square root of the eigenvalue
+
+Bi-plotting the stanrdardized data set.
+
+```{r}
+biplot(pca_human_std, choices = 1:2)
+```
+
+Edit Bi-plot
+
+```{r}
+biplot(pca_human_std, choices = 1:2, cex = c(0.8,2), col = c("grey40", "deeppink2"))
+```
+
+This gives us much clearer picture. But let's edit it a bit futher before analyzing it.
+
+Let's print how much each componenent captures variance in proportions of variance.
+
+```{r}
+#save pca
+s <- summary(pca_human_std)
+
+# rounded percentanges of variance captured by each PC
+pca_pr <- round(1*s$importance[2, ], digits = 5)
+pca_pr
+```
+
+Let's only print how much each component captures variance in percentages.
+
+```{r}
+pca_pr_2 <- round(100*s$importance[2, ], digits = 1)
+pca_pr_2
+```
+
+Let's plot again, with percentages of variance captured.
+
+```{r}
+pc_lab <- paste0(names(pca_pr_2), " (", pca_pr_2, "%)")
+biplot(pca_human_std, cex = c(0.5, 1), col = c("black", "deeppink2"), xlab = pc_lab[1], ylab = pc_lab[2])
+```
+Now, the plot tells us more. PC1 explains us 53,6% of the variance. From the plot one can see how countries are distributed along this component on the horizontal axis. PC2 explain 16,2% of the variance and countries distribution on that can be seen on horizontal axis.
+
+I would interpret the PC1 being related to Ado.Birth, Mat.Mor on the right and Life.E,  Edu.Exp, Edu2.Exp and GNI on the right. Countries on the right are differianted from the countries on the left with relation to their Adolecent birth rate and Maternal mortality ratio. Great deal of these countries are poorer countries from Africa.
+
+The left countries are quite grouped together. They share similar values relating to  expected years of schooling, life expectancy at birth, ratio of Female and Male populations with secondary education in each country and Gross National Income per capita. These countries seem to be quite rich countries. The countries on the left are thus countries with higher education years, lower maternal mortality rates etc. Countries on the right share especially high maternal mortality ratio and adolecent birth rate.
+
+On the vertical axis, which does not explain as much variance as PC1, countries differiante especially related to Percentage of female representatives in parliament and with ratio of labor force participation of females and males in each country. Countries on the top have higher values in those variables than the countries in the bottom of the plot. One can see that countries in the top include countries from several different continents. In the bottom the countries seem to more come from the Middle east. These countries have fewer female representatives in parliament and lower ratio of labor force participation of females and males in each country.
+
+
+## Tea
+
+Let's then take a look at Tea-data in Factominer-package.
+
+```{r}
+tea <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/tea.csv", stringsAsFactors = TRUE)
+```
+
+Let's have a look at its contents.
+
+```{r}
+dim(tea)
+str(tea)
+```
+It contains 300 rows and 36 variables. There is 35 variables that are Factors with 2 levels, and one integer variable.
+
+```{r}
+view(tea)
+```
+
+View() can be used to see contents of the data. It shows the answers in the form labels, like "Not.always" and not as their levels, like "1".
+
+Let's choose some variables for exploring, followint the exercise.
+
+```{r}
+library(dplyr)
+tea_time <- tea %>% dplyr::select(c("Tea", "How", "how", "sugar", "where", "lunch"))
+summary(tea_time)
+```
+
+```{r}
+#install.packages("ggplot2")
+#install.packages("vctrs")
+library(tidyverse)
+pivot_longer(tea_time, cols = everything()) %>% 
+  ggplot(aes(value)) + facet_wrap("name", scales = "free") + geom_bar() + theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+```
+It seems that majority of the drinkers use tea bag, drink tea alone, not on lunch, don't use sugar (this was tight), drink Earl Grey and buy it from the chain store.
+
+## MCA
+
+Let's then conduct multiple correspondence analysis.
+
+```{r}
+mca <- MCA(tea_time, graph = FALSE)
+summary(mca)
+```
+There are not a couple of super exlaining variables in the plot. The first two variables explain 29% of the variation.
+
+If I interpret correctly, the main categories contributing to the first dimension is unpackaged and lemon. People using unpacked tea and lemon are largest variables affecting first dimension. In the second dimension the highest category affecting the dimension is "other" from "How"-variable and tea bag-unpackaged option. 
+Let's plot the model.
+
+```{r}
+plot(mca, invisible=c("ind"), graph.type = "classic")
+```
+On the first dimension it can be seen that unpackaged and tea shop - categories stand out as they are more on the right, separated from the rest of the group. On the dim2 the other-variable is on the top. On the bottom teashop, unpackaged and green are quite far from rest of the group. If I interpret this correctly, there is a profile for respondents who choose the other option (from milk, lemon etc, quetion) and then don't choose tea shop, unpackaged or green option. This applies for the dim 2. With dim 1, there is a certain type of respondent who buy unpackaged tea from tea shop. This kind of profile explains the most of the variation in the data set.
+
+
+Let's use fviz_scree plot from "factoextra"-package to visualize the dimensions and their percentage of explained variance with a scree plot. 
+
+```{r}
+fviz_screeplot(mca, addlabels = TRUE, ylim = c(0, 20))
+```
+This plot also confirms that there are quite a lot of dimensions and not a single that jumps up and explains most of the variation.
+
+Let's try one more plotting option.
+
+```{r}
+plot(mca, invisible=c("ind"), graph.type = "classic", habillage = "quali")
+```
+
+I guess habillage-argument separates answers based on the answers so for example "unpackaged" and "tea bag+unpackaged" are answers to the same question.
+
+I wish I had more time to try to out different methods and plots and such, but for now, I have to leave the analysis to this.
